@@ -1,0 +1,6 @@
+#!/bin/sh
+umask 077
+/usr/bin/overwall boot >/dev/null 2>&1
+while sleep 15; do
+	/usr/bin/overwall tick >/dev/null 2>&1
+done

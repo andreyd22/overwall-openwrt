@@ -1,0 +1,8 @@
+{
+  "admin/services/overwall": {
+    "title": "Overwall VPN",
+    "order": 60,
+    "action": { "type": "view", "path": "overwall" },
+    "depends": { "acl": ["luci-app-overwall"] }
+  }
+}

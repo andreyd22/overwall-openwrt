@@ -1,0 +1,7 @@
+{
+  "luci-app-overwall": {
+    "description": "Manage Overwall VPN and local subscription secrets",
+    "read": { "ubus": { "luci.overwall": ["status"] } },
+    "write": { "ubus": { "luci.overwall": ["command", "job"] } }
+  }
+}

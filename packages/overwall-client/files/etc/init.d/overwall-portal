@@ -1,0 +1,9 @@
+#!/bin/sh /etc/rc.common
+USE_PROCD=1
+start_service() {
+	[ -s /var/run/overwall-public/index.html ] || return 1
+	procd_open_instance
+	procd_set_param command /usr/sbin/uhttpd -f -p 0.0.0.0:2050 -h /var/run/overwall-public -I index.html -E /index.html
+	procd_set_param respawn 3600 5 5
+	procd_close_instance
+}

@@ -1,0 +1,11 @@
+/lab/
+/dist/
+/sdk/
+/node_modules/
+*.key
+*.conf
+*.log
+.DS_Store
+
+__pycache__/
+*.pyc

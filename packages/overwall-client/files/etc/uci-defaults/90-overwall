@@ -1,0 +1,12 @@
+#!/bin/sh
+umask 077
+mkdir -p /etc/overwall /var/run/overwall
+chmod 700 /etc/overwall /var/run/overwall
+uci -q batch <<'UCI'
+set firewall.ow_boot_guard=include
+set firewall.ow_boot_guard.type='script'
+set firewall.ow_boot_guard.path='/usr/lib/overwall/guard.sh'
+set firewall.ow_boot_guard.fw4_compatible='1'
+commit firewall
+UCI
+exit 0

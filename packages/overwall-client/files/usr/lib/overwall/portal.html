@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Overwall VPN</title>
+<style>
+body{font:18px/1.6 system-ui;max-width:36rem;margin:10vh auto;padding:24px;background:#101725;color:#eef}
+a{display:inline-block;padding:16px;background:#70e5bc;color:#10201e;border-radius:12px;text-decoration:none}
+p{color:#c7d5de}a:focus-visible{outline:3px solid white;outline-offset:4px}
+</style>
+<h1>Overwall VPN</h1>
+<p id="reason" role="status">Подключение ограничено или временно недоступно.</p>
+<p>Проверьте подписку или подключитесь к Overwall. Диагностика доступна администратору в панели роутера.</p>
+<a href="https://overwall.online/" rel="noreferrer">Открыть Overwall</a>
+<p id="redirect">Сайт откроется автоматически. Если переход не работает, используйте кнопку выше.</p>
+<script>
+'use strict';
+fetch('/reason.json', {cache:'no-store'}).then(function(response){return response.json();}).then(function(data){
+ var reasons={traffic_exhausted:'Закончился доступный трафик VLESS.',expired:'Срок доступа закончился.',access_required:'Для выбранного подключения нужен действующий тариф.',blocked:'Доступ к аккаунту ограничен.',inactive:'Подключение сейчас недоступно.',connection_failed:'Не удалось проверить VPN-соединение. Это не означает, что закончился трафик.'};
+ document.getElementById('reason').textContent=reasons[data.reason]||'Подключение временно недоступно.';
+ if(data.reason!=='connection_failed') setTimeout(function(){window.location.replace('https://overwall.online/');},2500);
+ else document.getElementById('redirect').textContent='Проверьте соединение в панели роутера. Своё подключение можно восстановить или заменить на Overwall.';
+}).catch(function(){document.getElementById('redirect').textContent='Сведения о соединении недоступны. Попробуйте открыть сайт кнопкой выше.';});
+</script>
+</html>

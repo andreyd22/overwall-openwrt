@@ -1,0 +1,5 @@
+#!/bin/sh
+umask 077
+[ "$#" = 3 ] || exit 1
+/usr/lib/overwall/job "$1" "$2" "$3" </dev/null >/dev/null 2>&1 &
+exit 0

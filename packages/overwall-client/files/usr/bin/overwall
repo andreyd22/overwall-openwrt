@@ -1,0 +1,7 @@
+#!/bin/sh
+umask 077
+mkdir -p /var/lock /var/run/overwall
+if [ "$1" = status ]; then
+	exec /usr/bin/ucode /usr/share/ucode/overwall/cli.uc status
+fi
+exec flock -w 90 /var/lock/overwall.lock /usr/bin/ucode /usr/share/ucode/overwall/cli.uc "$@"

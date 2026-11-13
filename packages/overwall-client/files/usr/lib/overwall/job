@@ -1,0 +1,12 @@
+#!/bin/sh
+umask 077
+action="$1"
+input="$2"
+job="$3"
+case "$job" in *[!A-Za-z0-9_-]*|'') exit 1 ;; esac
+case "$action" in add|refresh|remove|settings|connect|disconnect|release|pair|pair_poll|logout) ;; *) exit 1 ;; esac
+result="/var/run/overwall/job-$job.result"
+timeout -s TERM 180 /usr/bin/overwall "$action" "$input" >"$result.new" 2>/dev/null
+[ -s "$result.new" ] || printf '%s\n' '{"error":"Operation timed out; inspect VPN status before retrying."}' >"$result.new"
+mv "$result.new" "$result"
+rm -f "$input"
