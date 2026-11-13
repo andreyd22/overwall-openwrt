@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Sign both package formats and feed indexes. Private keys stay outside repo."""
-import gzip,hashlib,pathlib,subprocess
+import gzip,hashlib,pathlib,subprocess,os
 ROOT=pathlib.Path(__file__).resolve().parents[1];DIST=ROOT/'dist'
-KEYS=pathlib.Path('/private/tmp/overwall-openwrt-signing')
+KEYS=pathlib.Path(os.environ.get('OVERWALL_SIGNING_DIR',str(pathlib.Path.home()/'.config/overwall/openwrt-signing')))
 def apk(*args):
  subprocess.run(['docker','run','--rm','--platform','linux/amd64','-v',f'{ROOT}:/work','-v',f'{KEYS}:/keys:ro','ubuntu:24.04','/work/sdk/staging_dir/host/bin/apk',*args],check=True)
 def usign(*args):
