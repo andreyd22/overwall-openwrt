@@ -45,6 +45,10 @@ define Package/overwall-client/postinst
 umask 077
 mkdir -p /etc/overwall /var/run/overwall
 chmod 700 /etc/overwall /var/run/overwall
+if [ -f /etc/uci-defaults/90-overwall ]; then
+ sh /etc/uci-defaults/90-overwall
+ rm /etc/uci-defaults/90-overwall
+fi
 /etc/init.d/overwall enable
 /etc/init.d/overwall start
 exit 0
@@ -53,9 +57,11 @@ endef
 define Package/overwall-client/prerm
 #!/bin/sh
 [ -n "$$IPKG_INSTROOT" ] && exit 0
-/usr/bin/overwall disconnect >/dev/null
+/usr/bin/overwall disconnect >/dev/null 2>&1 || exit 1
 /etc/init.d/overwall stop
 /etc/init.d/overwall disable
+uci -q delete firewall.ow_boot_guard
+uci commit firewall
 exit 0
 endef
 
