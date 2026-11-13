@@ -1,5 +1,5 @@
 #!/bin/sh
-# Overwall VPN installer 0.1.0. HTTPS + signed package repositories.
+# Overwall VPN installer 0.1.1. HTTPS + signed package repositories.
 set -eu
 [ "$(id -u)" = 0 ] || { echo 'Запустите от root.' >&2; exit 1; }
 [ -r /etc/openwrt_release ] || { echo 'Нужен OpenWrt.' >&2; exit 1; }
@@ -20,7 +20,7 @@ fetch() {
  elif command -v curl >/dev/null; then curl --fail --silent --show-error --proto '=https' --tlsv1.2 --output "$2" "$1";
  else echo 'В прошивке отсутствует HTTPS-загрузчик uclient-fetch/curl.' >&2; exit 1; fi
 }
-base=https://overwall.online/downloads/openwrt/0.1.0
+base=https://overwall.online/downloads/openwrt/0.1.1
 if [ "$manager" = apk ]; then
  mkdir -p /etc/apk/keys /etc/apk/repositories.d
  cat > /etc/apk/keys/overwall-apk.pem <<'APKKEY'

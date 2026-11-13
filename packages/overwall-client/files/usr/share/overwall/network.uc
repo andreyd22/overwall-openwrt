@@ -73,7 +73,16 @@ function cleanupRoutes() {
 }
 function stop(removeGuard) {
 	quiet(['/etc/init.d/overwall-tunnel', 'stop']);
-	quiet(['/sbin/ifdown', 'ow_wg']); cleanupRoutes();
+    quiet(['/sbin/ifdown', 'ow_wg']);
+    let stopped = false;
+    for (let retry = 0; retry < 50; retry++) {
+      let wgUp = quiet(['/sbin/ip', 'link', 'show', 'dev', 'ow_wg']);
+      let xrayUp = quiet(['/etc/init.d/overwall-tunnel', 'running']);
+      if (!wgUp && !xrayUp) { stopped = true; break; }
+      sleep(100);
+    }
+    if (!stopped) die('Previous tunnel has not stopped; WireGuard slot is retained');
+    cleanupRoutes();
 	if (removeGuard) {
 		quiet(['/usr/sbin/nft', 'delete', 'table', 'inet', 'overwall']);
 		firewall(null, false);

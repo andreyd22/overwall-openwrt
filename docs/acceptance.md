@@ -29,3 +29,19 @@ or captive portal on a phone. Fixtures use no customer identities or VPN keys.
 Do not mark pending checks as passed. Publish exact tested versions, commit and
 package hashes in the dated acceptance report. Physical router throughput and
 OS captive-window behavior require their own evidence.
+
+## 0.1.1, 13.11.2026 — WireGuard release
+
+Новая политика: обычное отключение и переключение освобождают прежний слот.
+Очередь в /etc/overwall переживает потерю API и перезагрузку. Команды и watcher
+используют существующий flock. Перед release проверяются остановка Xray и
+удаление ow_wg; при ошибке привязка сохраняется. Выход сначала освобождает,
+затем отзывает сессию. Временная потеря сети сохраняет назначение.
+
+Проверено в изолированном QEMU: parser17 PASS; TLS/real-backend pairing,
+account isolation/ограничение и recovery PASS; управляемые WG1→WG2, обычный stop,
+stop при paused API, постоянный receipt и watcher retry PASS. Подписанные APK/IPK
+собраны тем же ключом; установка обновлённого APK с проверкой подписи прошла.
+Новая проверка: tests/wg-release-e2e.py. Повтор проверки на установленном APK
+прошёл; обновление IPK на 24.10.8 установлено с сохранением настроек.
+Перезагрузка и публичная доставка ещё проверяются.
