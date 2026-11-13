@@ -1,0 +1,21 @@
+#!/bin/sh
+# Only the curl process launched here is cancelled. Never signal a tunnel or
+# another command; all state mutations still run under the normal CLI lock.
+"$@" &
+request_pid=$!
+trap 'kill "$request_pid" 2>/dev/null; wait "$request_pid" 2>/dev/null; exit 75' HUP INT TERM
+while kill -0 "$request_pid" 2>/dev/null; do
+ for marker in /var/run/overwall/foreground-*; do
+  [ -f "$marker" ] || continue
+  action_pid=${marker##*-}
+  case "$action_pid" in ''|*[!0-9]*) continue ;; esac
+  if kill -0 "$action_pid" 2>/dev/null; then
+   kill "$request_pid" 2>/dev/null
+   wait "$request_pid" 2>/dev/null
+   exit 75
+  fi
+ done
+ # OpenWrt BusyBox sleep may support integers only. ucode is a required dependency.
+ /usr/bin/ucode -e 'sleep(100)'
+done
+wait "$request_pid"

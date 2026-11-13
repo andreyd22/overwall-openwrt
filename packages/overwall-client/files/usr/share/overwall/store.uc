@@ -36,5 +36,13 @@ function random() {
  if (length(bytes) != 32) die('Secure random source failed');
  return replace(replace(replace(b64enc(bytes), /\+/g, '-'), /\//g, '_'), /=/g, '');
 }
+function foregroundWaiting() {
+ for (let file in fs.glob(RUN + '/foreground-*') || []) {
+  let pid = match(file, /\/foreground-([0-9]+)$/);
+  if (pid && fs.stat('/proc/' + pid[1])) return true;
+  fs.unlink(file);
+ }
+ return false;
+}
 function state() { return read('state') || { version: 1, sources: [], network: 'lan', autostart: false, selected: null }; }
-export { HOME, RUN, init, read, write, remove, popen, run, random, state };
+export { HOME, RUN, init, read, write, remove, popen, run, random, state, foregroundWaiting };

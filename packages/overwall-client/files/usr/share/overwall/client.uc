@@ -50,6 +50,11 @@ function drainRelease() {
   try { http.api('/wireguard/' + item.slot + '/release', { version: item.version }, true); }
   catch (e) { if (index('' + e, 'wireguard_binding_changed') < 0) die('VPN отключён, освобождение слота ожидается'); }
   shift(receipt.releases); store.write('wg-binding', receipt);
+  // Update only the confirmed assignment; never erase a newer owner/version.
+  let state = store.state();
+  for (let source in state.sources) if (source.kind == 'overwall')
+   for (let node in source.nodes || []) if ('' + node.slot == '' + item.slot && node.ownership?.state == 'mine' && node.ownership.version == item.version) node.ownership = { state: 'free' };
+  store.write('state', state);
  }
  store.remove('wg-binding'); store.remove('release-notice');
 }
@@ -62,7 +67,10 @@ function stopOwned(discover) {
   receipt = { owner: session.device_id, account: source?.user_id, installation: store.read('installation')?.id, discover: true };
  if (receipt) { receipt.pending = true; store.write('wg-binding', receipt); }
  store.remove('connection', true); store.remove('intent', true);
- try { drainRelease(); } catch (_) { store.write('release-notice', { pending: true }); }
+ if (receipt) {
+  store.write('release-notice', { pending: true });
+  store.write('release-kick', { at: time() }, true);
+ }
 }
 function connect() {
 	drainRelease();
@@ -98,7 +106,11 @@ function connect() {
 	store.write('connection', { state: 'connected', source_id: source.id, node: index, protocol: node.protocol, checked_at: time() }, true);
 }
 function tick() {
+ if (store.foregroundWaiting()) return;
+ // Bound background lock occupancy; foreground API requests retain their timeout.
+ http.background();
  try { drainRelease(); } catch (_) { store.write('release-notice', { pending: true }); }
+ if (store.foregroundWaiting()) return;
 	let state = store.state(), connection = store.read('connection', true), source = current(state), portal = store.read('portal', true);
 	let last = store.read('poll', true);
 	if (last && time() - last.at < (portal ? 15 : 60)) return;
@@ -121,6 +133,7 @@ function tick() {
 	}
  if (connection?.state == 'connected' && !store.read('portal', true)) {
   let previous = store.read('health', true), good = network.healthy(connection.protocol);
+  if (store.foregroundWaiting()) return;
   let failures = good ? 0 : (previous?.failures || 0) + 1;
   store.write('health', { failures, checked_at: time(), healthy: good }, true);
   if (failures >= 3) {
@@ -134,7 +147,7 @@ function command(action, input) {
 	let state = store.state(); input = input || {};
 	if (action == 'status') {
 		let info = store.read('connection', true) || { state: 'disconnected' };
-		return { ...info, version: '0.1.1', network: state.network, autostart: state.autostart, protected: !!state.protected, selected: state.selected, node: state.node || 0, signed_in: !!store.read('session'), portal: store.read('portal', true), release_pending: !!store.read('wg-binding')?.pending, notice: store.read('notice', true), sources: map(state.sources, source => ({ id: source.id, name: source.name, kind: source.kind, updated_at: source.updated_at, access: source.access, email: source.email, wireguard: source.wireguard ? {state:source.wireguard.state,traffic_unlimited:source.wireguard.traffic_unlimited,device_limit:source.wireguard.device_limit} : null, usage: source.usage, nodes: map(source.nodes, node => ({ name: node.name, protocol: node.protocol, slot: node.slot, location: node.location, ownership: node.ownership, state: node.state, details: node.configuration ? {address:node.configuration.interface.Address,dns:node.configuration.interface.DNS,endpoint:node.configuration.peers[0].Endpoint} : null })) })) };
+		return { ...info, version: '0.1.2', network: state.network, autostart: state.autostart, protected: !!state.protected, selected: state.selected, node: state.node || 0, signed_in: !!store.read('session'), portal: store.read('portal', true), release_pending: !!store.read('wg-binding')?.pending, notice: store.read('notice', true), sources: map(state.sources, source => ({ id: source.id, name: source.name, kind: source.kind, updated_at: source.updated_at, access: source.access, email: source.email, wireguard: source.wireguard ? {state:source.wireguard.state,traffic_unlimited:source.wireguard.traffic_unlimited,device_limit:source.wireguard.device_limit} : null, usage: source.usage, nodes: map(source.nodes, node => ({ name: node.name, protocol: node.protocol, slot: node.slot, location: node.location, ownership: node.ownership, state: node.state, details: node.configuration ? {address:node.configuration.interface.Address,dns:node.configuration.interface.DNS,endpoint:node.configuration.peers[0].Endpoint} : null })) })) };
 	}
 	if (action == 'add') {
 		if (length(state.sources) >= 32) die('Maximum 32 subscriptions');
@@ -181,7 +194,7 @@ function command(action, input) {
 		return { success: true };
 	}
  if (action == 'disconnect') { stopOwned(false); return { success: true, release_pending: !!store.read('wg-binding')?.pending }; }
- if (action == 'release') { stopOwned(true); drainRelease(); refreshAccount(); return { success: true }; }
+ if (action == 'release') { stopOwned(true); return { success: true, release_pending: !!store.read('wg-binding')?.pending }; }
 	if (action == 'pair') {
 		let installation = store.read('installation');
 		if (!installation) { installation = { id: store.random() }; store.write('installation', installation); }

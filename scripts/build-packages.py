@@ -15,7 +15,7 @@ import subprocess
 import tarfile
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '0.1.1'
+VERSION = '0.1.2'
 DIST = ROOT / 'dist'
 DIST.mkdir(exist_ok=True)
 CLIENT_DEPS = 'ucode ucode-mod-fs ucode-mod-uci ucode-mod-ubus curl ca-bundle resolveip flock coreutils-timeout ip-full nftables-json kmod-nft-tproxy kmod-wireguard wireguard-tools xray-core uhttpd qrencode'

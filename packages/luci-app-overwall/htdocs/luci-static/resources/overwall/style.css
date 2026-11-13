@@ -22,3 +22,5 @@ html[data-darkmode=true] .ow-app,html[data-darkmode=true] .ow-modal{--ow-bg:#111
 @media(min-width:521px) and (max-width:680px){.ow-hero-grid{grid-template-columns:minmax(0,1.12fr) minmax(0,1fr)}.ow-connection{min-height:205px;gap:18px}.ow-connection-main{align-items:flex-start}.ow-power{width:38px;height:38px;font-size:22px}.ow-connection h2{font-size:20px}.ow-eyebrow{font-size:9px}.ow-connection-main{gap:10px}.ow-quota strong{font-size:27px}.ow-account-head{align-items:flex-start;flex-wrap:wrap}.ow-account .ow-meta{align-items:flex-start;flex-direction:column}.ow-connection .ow-btn{font-size:12px}.ow-connection-bottom{gap:8px}}
 
 .ow-app input[type=search],.ow-app select,.ow-modal input:not([type=file]),.ow-modal select{height:40px;min-height:40px}.ow-app .ow-top>.ow-actions{align-items:center}
+
+.ow-server.is-unavailable { opacity: .45; }

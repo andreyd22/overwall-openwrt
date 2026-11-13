@@ -53,3 +53,13 @@ Public installer на24.10.8 заново установил клиент, LuCI 
 feed без обхода TLS/подписей. На25.12 управляемый API намеренно подменён
 локальным fixture, поэтому публичный installer там отдельно не заявляется;
 подписанный APK и сценарии WireGuard проверены на установленном пакете.
+
+
+## 0.1.2 — освобождение без ожидания HTTP
+
+Изолированный OpenWrt25 стенд: переход WG1→WG2 оставляет толькоWG2;
+обычное отключение, API outage с сохранённой очередью, reboot, watcher retry
+и отключённый autostart PASS. После доверенного signed APK upgrade0.1.1→0.1.2 команда disconnect при остановленном fixture API
+вернулась за1.15с, интерфейс ow_wg уже отсутствовал, release_pending=true.
+LuCI DOM: чужой занятый слот затемнён и connect disabled PASS.
+Signed APK upgrade, reboot и повторная доставка очереди PASS. Блокировка команд сохранена: фоновые HTTP/health-пробы прерываются только своим helper при появлении ожидающей команды пользователя. Ключи APK/usign совпадают с0.1.1. Доверенный IPK24.10 upgrade и reinstall через подписанный usign feed PASS, без отключения проверки подписи/зависимостей. Реальный helper cancellation на BusyBox проверяет пустой stderr; integer-only sleep заменён обязательным ucode sleep(100). Финальный offline stop1.17с; public installer нового выпуска ещё не проверен. Физические ARM/MIPS-роутеры отдельно.
