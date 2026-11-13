@@ -121,13 +121,13 @@ return view.extend({
 		];
 		if (busy) content.push(E('p', { 'class': 'ow-owner' }, _('Назначен устройству: ') + (owner.name || _('другое устройство')) + '. ' + _('Выберите свободный профиль.')));
 		if (wg && !own && owner.state === 'unknown') content.push(E('p', { 'class': 'ow-owner' }, _('Использование старого профиля не подтверждено. Привязка появится после подключения.')));
-		if (wg && !active && !own && node.ownership && node.ownership.state === 'mine') content.push(this.button(_('Отключить и освободить профиль'), function() { return this.act('release'); }, false, { className: 'ow-quiet' }));
+		if (wg && !active && !own && node.ownership && node.ownership.state === 'mine') content.push(this.button(_('Очистить старую привязку'), function() { return this.act('release'); }, false, { className: 'ow-quiet' }));
 		if (wg && node.details) {
 			var params = [];
 			[['Адрес VPN', node.details.address], ['DNS', node.details.dns || _('По умолчанию')], ['Сервер', node.details.endpoint]].forEach(function(pair) { params.push(E('dt', {}, pair[0]), E('dd', {}, pair[1] || '—')); });
 			content.push(E('details', {}, [E('summary', {}, _('Параметры конфигурации')), E('dl', { 'class': 'ow-params' }, params)]));
 		}
-		return E('article', { 'class': 'ow-server' + (active ? ' is-active' : ''), 'aria-label': label || node.name }, content);
+		return E('article', { 'class': 'ow-server' + (active ? ' is-active' : '') + (!active && (busy || preparing || noAccess) ? ' is-unavailable' : ''), 'aria-label': label || node.name }, content);
 	},
 	renderServerList: function() {
 		var protocol = this.tab === 'wireguard' ? 'wireguard' : 'vless';

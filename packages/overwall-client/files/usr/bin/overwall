@@ -2,6 +2,20 @@
 umask 077
 mkdir -p /var/lock /var/run/overwall
 if [ "$1" = status ]; then
-	exec /usr/bin/ucode /usr/share/ucode/overwall/cli.uc status
+ exec /usr/bin/ucode /usr/share/ucode/overwall/cli.uc status
 fi
-exec flock -w 90 /var/lock/overwall.lock /usr/bin/ucode /usr/share/ucode/overwall/cli.uc "$@"
+marker=
+case "$1" in
+ tick|boot) ;;
+ *) marker="/var/run/overwall/foreground-$$"; : > "$marker" ;;
+esac
+trap '[ -z "$marker" ] || rm -f "$marker"' EXIT
+trap 'exit 1' HUP INT TERM
+# Keep every mutation under the original command lock. Clear our priority marker
+# only after acquiring it, so background requests yield to a waiting user action.
+flock -w 90 /var/lock/overwall.lock /bin/sh -c '
+ [ -z "$1" ] || rm -f "$1"
+ shift
+ exec /usr/bin/ucode /usr/share/ucode/overwall/cli.uc "$@"
+' overwall "$marker" "$@"
+exit $?

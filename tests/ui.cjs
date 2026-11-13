@@ -78,6 +78,9 @@ async function click(label) {
   await click('Сохранить настройки');
   assert.equal(commands.at(-1).data.autostart, true);
   assert.equal(screen.root.querySelector('select').value, 'lan');
+  const occupied = screen.serverCard({ source: { id: 'managed', kind: 'overwall' }, index: 0, node: { protocol: 'wireguard', state: 'available', slot: '3', name: 'Occupied', ownership: { state: 'busy', name: 'Another device' } } });
+  assert.ok(occupied.classList.contains('is-unavailable'), 'occupied slot must be dimmed');
+  assert.ok(occupied.querySelector('button').disabled, 'occupied slot must not connect');
   console.log('PASS: LuCI empty state, source import, queued connect, escaped names, local QR and fixed pairing origin');
   browser.window.close();
 })().catch(error => { console.error(error); process.exitCode = 1; });

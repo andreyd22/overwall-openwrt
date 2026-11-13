@@ -3,11 +3,14 @@ import * as fs from 'fs';
 import * as store from 'overwall.store';
 
 const ORIGIN = 'https://overwall.online';
+let backgroundRequest = false;
+function background() { backgroundRequest = true; }
 function request(url, method, body, token, pinned) {
 	store.init();
+ if (backgroundRequest && store.foregroundWaiting()) die('Background request deferred');
 	if (!match(url, /^https?:\/\/[^\r\n]+$/) || length(url) > 4096 || match(url, /[[:cntrl:][:space:]]/)) die('Invalid URL');
 	let id = store.random(), root = store.RUN + '/http-' + id;
-	let args = ['/usr/bin/curl', '--silent', '--show-error', '--connect-timeout', '10', '--max-time', '25', '--max-filesize', '2097152', '--max-redirs', '0', '--proto', '=http,https', '--dump-header', root + '.headers', '--output', root + '.body', '--write-out', '%{http_code}', '--request', method || 'GET'];
+	let args = ['/usr/bin/curl', '--silent', '--show-error', '--connect-timeout', backgroundRequest ? '2' : '10', '--max-time', backgroundRequest ? '3' : '25', '--max-filesize', '2097152', '--max-redirs', '0', '--proto', '=http,https', '--dump-header', root + '.headers', '--output', root + '.body', '--write-out', '%{http_code}', '--request', method || 'GET'];
 	if (pinned) push(args, '--resolve', pinned);
 	// Credentials never appear in process arguments or redirects.
 	let config = '';
@@ -23,7 +26,7 @@ function request(url, method, body, token, pinned) {
 	push(args, '--config', root + '.config', '--url', url);
 	let status = 0, data = '', headers = '';
 	try {
-		let proc = store.popen(args);
+		let proc = store.popen(backgroundRequest ? ['/usr/lib/overwall/background-http', ...args] : args);
 		status = int(proc.read('all')); let code = proc.close();
 		if (code != 0) die('Network request failed');
 		data = fs.readfile(root + '.body') || ''; headers = fs.readfile(root + '.headers') || '';
@@ -64,4 +67,4 @@ function external(url) {
 	if (response.status != 200) die('Subscription server returned an error; redirects are not followed');
 	return response;
 }
-export { ORIGIN, api, external };
+export { ORIGIN, api, external, background };

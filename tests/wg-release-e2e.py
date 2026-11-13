@@ -23,13 +23,16 @@ cli('disconnect');cli('release')
 s=refresh(); indexes={n['slot']:i for i,n in enumerate(s['nodes']) if n['protocol']=='wireguard'}
 cli('connect',{'id':s['id'],'node':indexes['1']});assert own()==['1']
 cli('connect',{'id':s['id'],'node':indexes['2']});assert own()==['2']
-cli('disconnect');assert own()==[]
+cli('disconnect');cli('tick');assert own()==[]
 assert not cli('status')['autostart']
 cli('connect',{'id':s['id'],'node':indexes['1']})
 # Only the isolated fixture container is paused; no production service is used.
 subprocess.run(['docker','pause','overwall-openwrt-account-api'],check=True,capture_output=True)
 try:
+ started=time.monotonic()
  result=cli('disconnect');assert result['release_pending'] is True
+ elapsed=time.monotonic()-started
+ assert elapsed < 5, f'Stop waited for unavailable API: {elapsed:.2f}s'
  assert json.loads(ssh('cat /etc/overwall/wg-binding.json'))['pending'] is True
  assert not ssh('ip link show dev ow_wg 2>/dev/null || true').strip()
  if '--reboot' in sys.argv:
@@ -49,4 +52,4 @@ finally: subprocess.run(['docker','unpause','overwall-openwrt-account-api'],chec
 ssh('rm -f /var/run/overwall/poll.json');cli('tick')
 assert own()==[]
 assert cli('status')['release_pending'] is False
-print(json.dumps({'switch_releases_previous':True,'ordinary_stop_releases':True,'offline_stop_persists_receipt':True,'watcher_retries_release':True,'autostart_disabled':True}))
+print(json.dumps({'switch_releases_previous':True,'ordinary_stop_releases':True,'offline_stop_persists_receipt':True,'watcher_retries_release':True,'autostart_disabled':True,'offline_stop_seconds':round(elapsed,2)}))

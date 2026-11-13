@@ -155,13 +155,14 @@ function closePortal() {
 }
 
 function healthy(protocol) {
- let args = ['/usr/bin/curl', '--silent', '--fail', '--connect-timeout', '5', '--max-time', '8', '--head', '--output', '/dev/null'];
+ let args = ['/usr/bin/curl', '--silent', '--fail', '--connect-timeout', '2', '--max-time', '3', '--head', '--output', '/dev/null'];
  if (protocol == 'vless') push(args, '--socks5-hostname', '127.0.0.1:10808');
  else if (protocol == 'wireguard') push(args, '--interface', 'ow_wg');
  else return false;
  let base = args;
  for (let url in ['https://cp.cloudflare.com/generate_204', 'https://connectivitycheck.gstatic.com/generate_204']) {
-  let probe = [...base, '--url', url]; if (quiet(probe)) return true;
+  if (store.foregroundWaiting()) return false;
+  let probe = ['/usr/lib/overwall/background-http', ...base, '--url', url]; if (quiet(probe)) return true;
  }
  return false;
 }
