@@ -20,6 +20,11 @@ def refresh():
  return source()
 def own(): return [n['slot'] for n in refresh()['nodes'] if (n.get('ownership') or {}).get('state')=='mine']
 cli('disconnect');cli('release')
+# BusyBox sleep can be integer-only. Check real cancellation and stderr on-device.
+started=time.monotonic()
+probe=subprocess.run(SSH+["/usr/lib/overwall/background-http /bin/sleep 20 & probe=$!; sleep 1; marker=/var/run/overwall/foreground-$$; touch \"$marker\"; wait \"$probe\"; code=$?; rm -f \"$marker\"; test \"$code\" = 75"],capture_output=True,text=True,check=True)
+assert not probe.stderr,probe.stderr
+assert time.monotonic()-started < 4,'Foreground action failed to cancel background probe'
 s=refresh(); indexes={n['slot']:i for i,n in enumerate(s['nodes']) if n['protocol']=='wireguard'}
 cli('connect',{'id':s['id'],'node':indexes['1']});assert own()==['1']
 cli('connect',{'id':s['id'],'node':indexes['2']});assert own()==['2']

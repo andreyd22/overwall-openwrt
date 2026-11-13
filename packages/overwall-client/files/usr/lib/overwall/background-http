@@ -15,6 +15,7 @@ while kill -0 "$request_pid" 2>/dev/null; do
    exit 75
   fi
  done
- sleep .1
+ # OpenWrt BusyBox sleep may support integers only. ucode is a required dependency.
+ /usr/bin/ucode -e 'sleep(100)'
 done
 wait "$request_pid"
