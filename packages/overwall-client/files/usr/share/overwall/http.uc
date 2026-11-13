@@ -47,7 +47,7 @@ function api(path, body, authenticated, method) {
 	if (response.status == 204) return {};
 	let data;
 	try { data = json(response.data); } catch (_) { die('Invalid API response'); }
-	if (response.status < 200 || response.status >= 300) die('API request failed (' + response.status + ')');
+	if (response.status < 200 || response.status >= 300) die(data?.error == 'wireguard_binding_changed' ? 'wireguard_binding_changed' : 'API request failed (' + response.status + ')');
 	return data;
 }
 function external(url) {

@@ -4,11 +4,11 @@ import gzip,hashlib,pathlib,subprocess,os
 ROOT=pathlib.Path(__file__).resolve().parents[1];DIST=ROOT/'dist'
 KEYS=pathlib.Path(os.environ.get('OVERWALL_SIGNING_DIR',str(pathlib.Path.home()/'.config/overwall/openwrt-signing')))
 def apk(*args):
- subprocess.run(['docker','run','--rm','--platform','linux/amd64','-v',f'{ROOT}:/work','-v',f'{KEYS}:/keys:ro','ubuntu:24.04','/work/sdk/staging_dir/host/bin/apk',*args],check=True)
+ subprocess.run(['docker','run','--rm','--platform','linux/amd64','-v',f'{ROOT}:/work','-v',f'{(ROOT / "sdk").resolve()}:/sdk:ro','-v',f'{KEYS}:/keys:ro','ubuntu:24.04','/sdk/staging_dir/host/bin/apk',*args],check=True)
 def usign(*args):
- subprocess.run(['docker','run','--rm','--platform','linux/amd64','-v',f'{ROOT}:/work','-v',f'{KEYS}:/keys','ubuntu:24.04','/work/sdk/staging_dir/host/bin/usign',*args],check=True)
+ subprocess.run(['docker','run','--rm','--platform','linux/amd64','-v',f'{ROOT}:/work','-v',f'{(ROOT / "sdk").resolve()}:/sdk:ro','-v',f'{KEYS}:/keys','ubuntu:24.04','/sdk/staging_dir/host/bin/usign',*args],check=True)
 if not (KEYS/'overwall-usign.key').exists(): usign('-G','-s','/keys/overwall-usign.key','-p','/keys/overwall-usign.pub','-c','Overwall OpenWrt feed')
-(KEYS/'overwall-usign.key').chmod(0o600)
+if (KEYS/'overwall-usign.key').stat().st_mode & 0o077: raise ValueError('Signing key must be private (0600)')
 for f in DIST.glob('*.apk'): apk('adbsign','--allow-untrusted','--reset-signatures','--sign-key','/keys/overwall-apk-ec.pem','/work/dist/'+f.name)
 for release,extension in [('25.12','apk'),('24.10','ipk')]:
  feed=DIST/release;feed.mkdir(exist_ok=True)

@@ -15,7 +15,7 @@ import subprocess
 import tarfile
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '0.1.0'
+VERSION = '0.1.1'
 DIST = ROOT / 'dist'
 DIST.mkdir(exist_ok=True)
 CLIENT_DEPS = 'ucode ucode-mod-fs ucode-mod-uci ucode-mod-ubus curl ca-bundle resolveip flock coreutils-timeout ip-full nftables-json kmod-nft-tproxy kmod-wireguard wireguard-tools xray-core uhttpd qrencode'
@@ -102,6 +102,8 @@ for name, depends in PACKAGES.items():
     arguments += ['--files', '/work/' + str(stage.relative_to(ROOT)), '--output', f'/work/dist/{name}-{VERSION}-r1.apk']
     arguments += ['--script', 'post-install:/work/' + str((scripts / 'postinst').relative_to(ROOT)), '--script', 'post-upgrade:/work/' + str((scripts / 'postinst').relative_to(ROOT)), '--script', 'pre-deinstall:/work/' + str((scripts / 'prerm').relative_to(ROOT))]
     subprocess.run(arguments, check=True)
+    # The reusable SDK builder may be mounted from a different checkout.
+    subprocess.run(['docker', 'cp', f'overwall-openwrt-builder:/work/dist/{name}-{VERSION}-r1.apk', str(DIST / f'{name}-{VERSION}-r1.apk')], check=True)
 checksums = []
 for package in sorted(DIST.glob('*')):
     if package.suffix in ['.ipk', '.apk']:

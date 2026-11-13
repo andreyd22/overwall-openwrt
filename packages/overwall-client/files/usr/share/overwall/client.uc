@@ -17,7 +17,7 @@ function refreshAccount() {
 	let state = store.state(), source;
 	for (let entry in state.sources) if (entry.kind == 'overwall') source = entry;
 	if (!source) { source = { id: store.random(), name: 'Overwall', kind: 'overwall', nodes: [] }; push(state.sources, source); }
-	source.access = account.access; source.wireguard = wg; source.email = account.email; source.updated_at = time();
+	source.user_id = account.id; source.access = account.access; source.wireguard = wg; source.email = account.email; source.updated_at = time();
 	let cached = filter(source.nodes || [], n => n.protocol == 'vless');
 	source.nodes = [];
 	for (let server in account.servers || []) {
@@ -28,7 +28,44 @@ function refreshAccount() {
 	store.write('state', state);
 	return source;
 }
+// All commands and watcher ticks hold the CLI flock. Keep release receipts in
+// /etc, not /var/run: a reboot must not forget a stopped device's assignment.
+function drainRelease() {
+ let receipt = store.read('wg-binding');
+ if (!receipt?.pending) return;
+ let session = store.read('session');
+ if (!session) die('VPN отключён, освобождение слота ожидается');
+ if (receipt.owner != session.device_id) {
+  if (!receipt.account || receipt.installation != store.read('installation')?.id || '' + http.api('/me', null, true).id != '' + receipt.account) die('VPN отключён, освобождение слота ожидается');
+  receipt.owner = session.device_id; store.write('wg-binding', receipt);
+ }
+ if (receipt.discover) {
+  let profiles = http.api('/wireguard', null, true).profiles;
+  receipt.releases = [];
+  for (let p in profiles || []) if (p.ownership?.state == 'mine') push(receipt.releases, { slot: p.id, version: p.ownership.version });
+  receipt.discover = false; store.write('wg-binding', receipt);
+ }
+ while (length(receipt.releases || [])) {
+  let item = receipt.releases[0];
+  try { http.api('/wireguard/' + item.slot + '/release', { version: item.version }, true); }
+  catch (e) { if (index('' + e, 'wireguard_binding_changed') < 0) die('VPN отключён, освобождение слота ожидается'); }
+  shift(receipt.releases); store.write('wg-binding', receipt);
+ }
+ store.remove('wg-binding'); store.remove('release-notice');
+}
+function stopOwned(discover) {
+ let state = store.state(), source = current(state), node = source?.nodes[state.node || 0];
+ state.autostart = false; state.protected = false; store.write('state', state);
+ network.closePortal(); network.stop(true); // Must confirm teardown before release.
+ let receipt = store.read('wg-binding'), session = store.read('session');
+ if (!receipt && session && (discover || (source?.kind == 'overwall' && node?.protocol == 'wireguard')))
+  receipt = { owner: session.device_id, account: source?.user_id, installation: store.read('installation')?.id, discover: true };
+ if (receipt) { receipt.pending = true; store.write('wg-binding', receipt); }
+ store.remove('connection', true); store.remove('intent', true);
+ try { drainRelease(); } catch (_) { store.write('release-notice', { pending: true }); }
+}
 function connect() {
+	drainRelease();
 	let state = store.state(), source = current(state);
 	if (!source) die('Select a subscription or profile');
 	let index = int(state.node || 0), node = source.nodes[index];
@@ -42,7 +79,12 @@ function connect() {
 		if (node.protocol == 'vless' && source.access.state != 'active') { network.portal(source.access.state); return; }
 		if (node.protocol == 'wireguard') {
 			if (source.wireguard.state == 'access_required') { network.portal('access_required'); return; }
-			let assignment = http.api('/wireguard/' + node.slot + '/claim', {}, true);
+            let session = store.read('session');
+            // Persist intent before HTTP so a lost claim ACK is recoverable.
+            store.write('wg-binding', { owner: session.device_id, account: source.user_id, installation: store.read('installation')?.id, pending: true, discover: true });
+            let assignment = http.api('/wireguard/' + node.slot + '/claim', {}, true);
+            store.write('wg-binding', { owner: session.device_id, account: source.user_id, installation: store.read('installation')?.id,
+                pending: false, releases: [{ slot: node.slot, version: assignment.ownership.version }] });
 			let saved = store.state();
 			for (let entry in saved.sources) if (entry.id == source.id) for (let profile in entry.nodes) if (profile.slot == node.slot && profile.protocol == 'wireguard') profile.ownership = assignment.ownership;
 			store.write('state', saved);
@@ -50,11 +92,13 @@ function connect() {
 			node = { ...node, configuration: parse.wireguard(config.configuration) };
 		}
 	}
-	network.closePortal(); network.connect(node);
+    try { network.closePortal(); network.connect(node); }
+    catch (e) { stopOwned(false); die('Connection failed'); }
 	store.remove('health', true); store.remove('notice', true);
 	store.write('connection', { state: 'connected', source_id: source.id, node: index, protocol: node.protocol, checked_at: time() }, true);
 }
 function tick() {
+ try { drainRelease(); } catch (_) { store.write('release-notice', { pending: true }); }
 	let state = store.state(), connection = store.read('connection', true), source = current(state), portal = store.read('portal', true);
 	let last = store.read('poll', true);
 	if (last && time() - last.at < (portal ? 15 : 60)) return;
@@ -90,7 +134,7 @@ function command(action, input) {
 	let state = store.state(); input = input || {};
 	if (action == 'status') {
 		let info = store.read('connection', true) || { state: 'disconnected' };
-		return { ...info, version: '0.1.0', network: state.network, autostart: state.autostart, protected: !!state.protected, selected: state.selected, node: state.node || 0, signed_in: !!store.read('session'), portal: store.read('portal', true), notice: store.read('notice', true), sources: map(state.sources, source => ({ id: source.id, name: source.name, kind: source.kind, updated_at: source.updated_at, access: source.access, email: source.email, wireguard: source.wireguard ? {state:source.wireguard.state,traffic_unlimited:source.wireguard.traffic_unlimited,device_limit:source.wireguard.device_limit} : null, usage: source.usage, nodes: map(source.nodes, node => ({ name: node.name, protocol: node.protocol, slot: node.slot, location: node.location, ownership: node.ownership, state: node.state, details: node.configuration ? {address:node.configuration.interface.Address,dns:node.configuration.interface.DNS,endpoint:node.configuration.peers[0].Endpoint} : null })) })) };
+		return { ...info, version: '0.1.1', network: state.network, autostart: state.autostart, protected: !!state.protected, selected: state.selected, node: state.node || 0, signed_in: !!store.read('session'), portal: store.read('portal', true), release_pending: !!store.read('wg-binding')?.pending, notice: store.read('notice', true), sources: map(state.sources, source => ({ id: source.id, name: source.name, kind: source.kind, updated_at: source.updated_at, access: source.access, email: source.email, wireguard: source.wireguard ? {state:source.wireguard.state,traffic_unlimited:source.wireguard.traffic_unlimited,device_limit:source.wireguard.device_limit} : null, usage: source.usage, nodes: map(source.nodes, node => ({ name: node.name, protocol: node.protocol, slot: node.slot, location: node.location, ownership: node.ownership, state: node.state, details: node.configuration ? {address:node.configuration.interface.Address,dns:node.configuration.interface.DNS,endpoint:node.configuration.peers[0].Endpoint} : null })) })) };
 	}
 	if (action == 'add') {
 		if (length(state.sources) >= 32) die('Maximum 32 subscriptions');
@@ -116,7 +160,7 @@ function command(action, input) {
 		return { success: true };
 	}
 	if (action == 'remove') {
-		if (input.id == state.selected) { state.selected = null; state.autostart = false; state.protected = false; store.write('state', state); network.closePortal(); network.stop(true); store.remove('connection', true); }
+		if (input.id == state.selected) { stopOwned(false); state = store.state(); state.selected = null; }
 		state.sources = filter(state.sources, s => s.id != input.id); store.write('state', state); return { success: true };
 	}
 	if (action == 'settings') {
@@ -130,25 +174,14 @@ function command(action, input) {
 		for (let entry in state.sources) if (entry.id == input.id) source = entry;
 		if (!source || !source.nodes[int(input.node)]) die('Select a server');
 		let net = network.selected();
+        stopOwned(true); drainRelease(); state = store.state();
 		state.selected = source.id; state.node = int(input.node); state.node_id = source.nodes[state.node].id; state.protected = true; state.device = net.device; store.write('state', state);
 		network.guard('closed', net.device);
-		try { connect(); } catch (e) { store.write('connection', { state: 'error', source_id: source.id, protocol: source.nodes[state.node].protocol }, true); die('Connection failed'); }
+		try { connect(); } catch (e) { stopOwned(false); store.write('connection', { state: 'error', source_id: source.id, protocol: source.nodes[state.node].protocol }, true); die('Connection failed'); }
 		return { success: true };
 	}
-	if (action == 'disconnect') {
-		state.autostart = false; state.protected = false; store.write('state', state); network.closePortal(); network.stop(true);
-		store.remove('connection', true); store.remove('intent', true); return { success: true };
-	}
-	if (action == 'release') {
-		let source = current(state), node = source?.nodes[state.node || 0];
-		if (source?.kind != 'overwall' || node?.protocol != 'wireguard') die('Select an Overwall WireGuard profile');
-		command('disconnect');
-		let profiles = http.api('/wireguard', null, true).profiles, profile;
-		for (let entry in profiles) if (entry.id == node.slot) profile = entry;
-		if (profile?.ownership?.state != 'mine') die('Profile is not assigned to this installation');
-		http.api('/wireguard/' + node.slot + '/release', { version: profile.ownership.version }, true);
-		refreshAccount(); return { success: true };
-	}
+ if (action == 'disconnect') { stopOwned(false); return { success: true, release_pending: !!store.read('wg-binding')?.pending }; }
+ if (action == 'release') { stopOwned(true); drainRelease(); refreshAccount(); return { success: true }; }
 	if (action == 'pair') {
 		let installation = store.read('installation');
 		if (!installation) { installation = { id: store.random() }; store.write('installation', installation); }
@@ -168,8 +201,8 @@ function command(action, input) {
 	}
 	if (action == 'logout') {
 		let session = store.read('session');
+		if (current(state)?.kind == 'overwall') { stopOwned(true); drainRelease(); }
 		if (session) http.api('/devices/' + session.device_id, null, true, 'DELETE');
-		if (current(state)?.kind == 'overwall') command('disconnect');
 		store.remove('session'); state = store.state(); state.sources = filter(state.sources, s => s.kind != 'overwall'); store.write('state', state);
 		return { success: true };
 	}
