@@ -27,5 +27,7 @@ for release,extension in [('25.12','apk'),('24.10','ipk')]:
   (feed/'Packages.gz').write_bytes(gzip.compress((feed/'Packages').read_bytes(),mtime=0))
   usign('-S','-s','/keys/overwall-usign.key','-m','/work/dist/24.10/Packages','-x','/work/dist/24.10/Packages.sig')
 (DIST/'overwall-usign.pub').write_bytes((KEYS/'overwall-usign.pub').read_bytes())
+(DIST/'overwall-apk.pem').write_bytes(subprocess.check_output(['openssl','pkey','-in',str(KEYS/'overwall-apk-ec.pem'),'-pubout']))
+(DIST/'install.sh').write_bytes((ROOT/'scripts/install.sh').read_bytes())
 (DIST/'SHA256SUMS').write_text(''.join(hashlib.sha256(f.read_bytes()).hexdigest()+'  '+str(f.relative_to(DIST))+'\n' for f in sorted(DIST.rglob('*')) if f.is_file() and f.name!='SHA256SUMS'))
 print('Signed packages and feed indexes; checksums updated')

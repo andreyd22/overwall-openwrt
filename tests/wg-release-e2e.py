@@ -33,10 +33,13 @@ try:
  assert json.loads(ssh('cat /etc/overwall/wg-binding.json'))['pending'] is True
  assert not ssh('ip link show dev ow_wg 2>/dev/null || true').strip()
  if '--reboot' in sys.argv:
+  old_boot = ssh('cat /proc/sys/kernel/random/boot_id').strip()
   subprocess.run(SSH+['reboot'],capture_output=True)
-  time.sleep(3)
+  time.sleep(5)
   for attempt in range(30):
    try:
+    assert ssh('cat /proc/sys/kernel/random/boot_id').strip() != old_boot
+    # The normal watcher may already have attempted a release; API is paused.
     assert json.loads(ssh('cat /etc/overwall/wg-binding.json'))['pending'] is True
     break
    except Exception: time.sleep(2)
