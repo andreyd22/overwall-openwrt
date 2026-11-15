@@ -42,7 +42,8 @@ apk() {
  *) echo 'Unexpected apk call' >&2; return 98;;
  esac
 }
-. '${tmp}/install.sh' ${options.check ? '--check' : ''}
+set -- ${options.check ? '--check' : ''}
+. '${tmp}/install.sh'
 `;
   // APK update has no $2; the mock must tolerate that under set -u.
   const result = spawnSync('/bin/sh',['-c',wrapper.replace('"$1 $2"','"$1 ${2:-}"')],{encoding:'utf8',timeout:10000,killSignal:'SIGKILL'});
