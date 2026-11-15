@@ -68,7 +68,11 @@ other dependencies retain their own licenses and are installed separately.
 
 ## Requirements and installation
 
-Minimum: 256 MB RAM and 50 MB free persistent storage; 512 MB RAM recommended.
+Minimum: 256 MB RAM; 512 MB RAM recommended. The installer calculates free
+persistent storage from the packages actually missing on this router, adding
+20% plus 2 MiB reserve. Existing compatible Xray dependencies are reused.
+Use `sh install.sh --check` to inspect the plan without installing packages
+(the signed repository is configured/updated and opkg may download archives).
 Use stable OpenWrt 25.12.x or 24.10.x with matching official repositories.
 See [Russian installation guide](docs/install-ru.md) and
 https://overwall.online/download#openwrt for the signed repository installer.
