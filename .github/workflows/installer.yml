@@ -1,0 +1,16 @@
+name: Installer checks
+on:
+  push:
+    paths: ['scripts/install.sh', 'tests/installer-*', '.github/workflows/installer.yml']
+  pull_request:
+    paths: ['scripts/install.sh', 'tests/installer-*', '.github/workflows/installer.yml']
+permissions:
+  contents: read
+jobs:
+  installer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sh -n scripts/install.sh
+      - run: sh tests/installer-storage.sh
+      - run: node tests/installer-flow.cjs
